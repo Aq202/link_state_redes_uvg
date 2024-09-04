@@ -1,7 +1,7 @@
 {
 	"type": "topo",
 	"config": {
-		"kie21581-lab3-1@alumchat.lol": ["mor21762-lab3-1@alumchat.lol", "gue21781-lab3-1@alumchat.lol", "zam21780-lab3-1@alumchat.lol"],
+		"kie21581-lab3-1@alumchat.lol": ["mor21762-lab3-1@alumchat.lol", "gue21781-lab3-1@alumchat.lol"],
 		"mor21762-lab3-1@alumchat.lol": ["kie21581-lab3-1@alumchat.lol", "gue21781-lab3-1@alumchat.lol", "zam21780-lab3-1@alumchat.lol"],
 		"gue21781-lab3-1@alumchat.lol": ["kie21581-lab3-1@alumchat.lol", "mor21762-lab3-1@alumchat.lol", "zam21780-lab3-1@alumchat.lol"],
 		"zam21780-lab3-1@alumchat.lol": ["kie21581-lab3-1@alumchat.lol", "mor21762-lab3-1@alumchat.lol", "gue21781-lab3-1@alumchat.lol"]
