@@ -1,3 +1,5 @@
+const { getNode } = require("../utils");
+
 const weightsTable = {};
 
 /**
@@ -6,11 +8,13 @@ const weightsTable = {};
  * @param {*} weights 
  * @returns version number
  */
-const modifyNodeWeights = (user, weights) => {
+const modifyNodeWeights = async (user, weights) => {
 
-  const version = weightsTable[user] ? weightsTable[user].version + 1 : 1;
+  const node = await getNode(user);
 
-  weightsTable[user] = {
+  const version = weightsTable[node] ? weightsTable[node].version + 1 : 1;
+
+  weightsTable[node] = {
     weights,
     version,
   };
@@ -18,8 +22,10 @@ const modifyNodeWeights = (user, weights) => {
   return version;
 }
 
-const getNodeWeights = (user) => {
-  return weightsTable[user];
+const getNodeWeights = async (user) => {
+  const node = await getNode(user);
+
+  return weightsTable[node];
 }
 
 const getWeightsTable = () => {
