@@ -1,6 +1,6 @@
 const { JSDOM } = require('jsdom');
 const { Strophe, $msg, $pres } = require('strophe.js');
-const { decodeHtmlEntities, getNeighbors, readJsonFile } = require('./utils.js');
+const { decodeHtmlEntities, getNeighbors, readJsonFile, getNode, getName } = require('./utils.js');
 const { modifyNodeWeights, getNodeWeights, getWeightsTable } = require('./link-state/weightsTable.js');
 const { getUser } = require('./enviroment.js');
 const { Graph } = require('./dijkstra/index.js');
@@ -66,9 +66,10 @@ const onMessage = (message) => {
             const jsonBody = JSON.parse(body);
             switch (jsonBody.type) {
                 case 'weights':
-                    // Verificar si el mensaje es repetido
-                    const oldWeights = getNodeWeights(jsonBody.from);
-                    if (!oldWeights || oldWeights.version < jsonBody.version) {
+                    (async()=> {
+                        // Verificar si el mensaje es repetido
+                        const oldWeights = await getNodeWeights(jsonBody.from);
+                        if (!oldWeights || oldWeights.version < jsonBody.version) {
                         
                         // Si el mensaje no es repetido, actualizar y enviar a vecinos
                         modifyNodeWeights(jsonBody.from, jsonBody.table);
@@ -76,6 +77,7 @@ const onMessage = (message) => {
                         
                         sendWeightsTableToNeighbours(jsonBody.table, jsonBody.version, jsonBody.from, from);
                     }
+                    })();
 
                     break;
                     
@@ -88,8 +90,13 @@ const onMessage = (message) => {
                 case 'echo_response':
                     break;
                 case 'send_routing':
-                    console.log("Nodo intermediario, reenviando a siguiente nodo.");
-                    dijkstraSend(jsonBody);
+
+                    if (jsonBody.hops <= 0){
+                        console.log("Ya no hay más saltos disponibles. Mensaje perdido.");
+                    }else{
+                        console.log("Nodo intermediario, reenviando a siguiente nodo.");
+                        dijkstraSend(jsonBody);
+                    }                    
                     break;
 
                 case 'message':
@@ -109,12 +116,12 @@ const onMessage = (message) => {
     return true;
 }
 
-const sendEchoMessage = (myNode, targetNode) => {
+const sendEchoMessage = (myNode, targetUser) => {
     from = `${myNode}${RESOURCE.trim() != '' ? `/${RESOURCE}` : ''}`;
-    to = `${targetNode}${RESOURCE.trim() != '' ? `/${RESOURCE}` : ''}`;
+    to = `${targetUser}${RESOURCE.trim() != '' ? `/${RESOURCE}` : ''}`;
     return new Promise((resolve, reject) => {
         const start = Date.now();
-        echoSentTimes[targetNode] = start;
+        echoSentTimes[targetUser] = start;
 
         const echoMessage = {
             type: "echo",
@@ -172,21 +179,25 @@ const sendWeightsTableToNeighbours = async (table, version, originUser, ignoreNe
     };
 
     const currentUser = getUser();
-    const neighbors = await getNeighbors(currentUser);
-    for(let neighbor of neighbors) {
-        if (neighbor === ignoreNeighbour) continue;
-        sendMessage(currentUser, neighbor, JSON.stringify(message));
+    const currentUserNode = await getNode(currentUser);
+    const neighbors = await getNeighbors(currentUserNode);
+    for(let neighborNode of neighbors) {
+        const neighborUser = await getName(neighborNode);
+        if (neighborUser === ignoreNeighbour) continue;
+        sendMessage(currentUser, neighborUser, JSON.stringify(message));
     }
 }
 
 const dijkstraSend = async (message) => {
 	const topology = getWeightsTable();
 
-	const startNode = getUser();
-	const destinationNode = message.to;
+	const startUser = getUser();
+    const startNode = await getNode(startUser);
+	const destinationUser = message.to;
+    const destinationNode = await getNode(destinationUser);
 
 	// Verificar si es el destinatario
-	if (startNode === destinationNode) {
+	if (startUser === destinationUser) {
 		console.log("El mensaje llegó a su destino!: ", message);
 		return;
 	}
@@ -195,7 +206,7 @@ const dijkstraSend = async (message) => {
 	// Calcular el camino
 	const graph = new Graph(topology);
 	const path = graph.shortestPath(startNode, destinationNode);
-    console.log(startNode, destinationNode, path, topology);
+    console.log(`\n\nDetalles de envío:\n\n Start:${startNode}, Destination: ${destinationNode}, Path: ${path}, \n\n`, topology);
 
 	// Enviar el mensaje a siguiente nodo
 	if (path.length > 1) {
@@ -206,6 +217,7 @@ const dijkstraSend = async (message) => {
 			to: message.to,
 			from: message.from,
 			data: message.data,
+            hops: path.length - 1,
 		};
 
 		if (nextNode === destinationNode) {
@@ -213,8 +225,11 @@ const dijkstraSend = async (message) => {
 			delete messageToSend.to;
 		}
 
-		sendMessage(startNode, nextNode, JSON.stringify(messageToSend));
-	}
+        const nextUser = await getName(nextNode);
+		sendMessage(startUser, nextUser, JSON.stringify(messageToSend));
+	}else{
+        console.log("No se encontró una conexión para enviar el mensaje.");
+    }
 };
 
 const sendPresence = () => {
