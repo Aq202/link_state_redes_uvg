@@ -85,6 +85,7 @@ const onMessage = (message) => {
                     const echoResponse = {
                         type: 'echo_response'
                     };
+                    console.log(`Echo recibido de ${from}. Respondiendo...`);
                     sendMessage(to.split('@')[0], from, JSON.stringify(echoResponse));
                     break;
                 case 'echo_response':
@@ -94,13 +95,12 @@ const onMessage = (message) => {
                     if (jsonBody.hops <= 0){
                         console.log("Ya no hay más saltos disponibles. Mensaje perdido.");
                     }else{
-                        console.log("Nodo intermediario, reenviando a siguiente nodo.");
+                        console.log(`Nodo intermediario (${jsonBody.from} -> ${jsonBody.to}), recibido de ${from}, reenviando a siguiente nodo.`);
                         dijkstraSend(jsonBody);
                     }                    
                     break;
 
                 case 'message':
-                    console.log(`Mensaje recibido: ${jsonBody.data}`);
                     break;
                 default:
                     console.log("Tipo no válido. Imprimiendo mensaje en crudo.");
@@ -143,7 +143,7 @@ const sendEchoMessage = (myNode, targetUser) => {
                     const jsonBody = JSON.parse(body)
                     if (jsonBody.type === 'echo_response') {
                         connection.deleteHandler(handler);
-                        resolve(Date.now() - start);
+                        resolve((Date.now() - start) / 1000);
                     }
                 } catch {
                     console.error('El mensaje recibido no es de tipo JSON.')
