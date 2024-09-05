@@ -101,6 +101,7 @@ const onMessage = (message) => {
                     break;
 
                 case 'message':
+                    console.log(`Mensaje de ${jsonBody.from}: ${jsonBody.data}\n(Recibido desde el nodo ${from})`);
                     break;
                 default:
                     console.log("Tipo no válido. Imprimiendo mensaje en crudo.");
