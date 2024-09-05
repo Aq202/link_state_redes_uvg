@@ -1,4 +1,4 @@
-const { readJsonFile, getNeighbors, getNode } = require("./utils.js");
+const { readJsonFile, getNeighbors, getNode, getName } = require("./utils.js");
 const { input } = require("./utils.js");
 const { login, sendEchoMessage, sendWeightsTableToNeighbours, dijkstraSend } = require("./server.js");
 const { modifyNodeWeights } = require("./link-state/weightsTable.js");
@@ -13,7 +13,8 @@ const updateNodeWeights = async (user) => {
 
     for(let neighbor of neighbors) {
         try{
-            weights[neighbor] = await sendEchoMessage(user, neighbor);
+						const neighborUser = await getName(neighbor);
+            weights[neighbor] = await sendEchoMessage(user, neighborUser);
         } catch (error) {
             //console.log("Echo timeout con vecino: ", neighbor);
             weights[neighbor] = Infinity;

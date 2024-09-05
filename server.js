@@ -90,8 +90,13 @@ const onMessage = (message) => {
                 case 'echo_response':
                     break;
                 case 'send_routing':
-                    console.log("Nodo intermediario, reenviando a siguiente nodo.");
-                    dijkstraSend(jsonBody);
+
+                    if (jsonBody.hops <= 0){
+                        console.log("Ya no hay más saltos disponibles. Mensaje perdido.");
+                    }else{
+                        console.log("Nodo intermediario, reenviando a siguiente nodo.");
+                        dijkstraSend(jsonBody);
+                    }                    
                     break;
 
                 case 'message':
@@ -111,12 +116,12 @@ const onMessage = (message) => {
     return true;
 }
 
-const sendEchoMessage = (myNode, targetNode) => {
+const sendEchoMessage = (myNode, targetUser) => {
     from = `${myNode}${RESOURCE.trim() != '' ? `/${RESOURCE}` : ''}`;
-    to = `${targetNode}${RESOURCE.trim() != '' ? `/${RESOURCE}` : ''}`;
+    to = `${targetUser}${RESOURCE.trim() != '' ? `/${RESOURCE}` : ''}`;
     return new Promise((resolve, reject) => {
         const start = Date.now();
-        echoSentTimes[targetNode] = start;
+        echoSentTimes[targetUser] = start;
 
         const echoMessage = {
             type: "echo",
@@ -176,9 +181,10 @@ const sendWeightsTableToNeighbours = async (table, version, originUser, ignoreNe
     const currentUser = getUser();
     const currentUserNode = await getNode(currentUser);
     const neighbors = await getNeighbors(currentUserNode);
-    for(let neighbor of neighbors) {
-        if (neighbor === ignoreNeighbour) continue;
-        sendMessage(currentUser, neighbor, JSON.stringify(message));
+    for(let neighborNode of neighbors) {
+        const neighborUser = await getName(neighborNode);
+        if (neighborUser === ignoreNeighbour) continue;
+        sendMessage(currentUser, neighborUser, JSON.stringify(message));
     }
 }
 
@@ -200,29 +206,30 @@ const dijkstraSend = async (message) => {
 	// Calcular el camino
 	const graph = new Graph(topology);
 	const path = graph.shortestPath(startNode, destinationNode);
-    console.log(startUser, startNode, destinationUser, destinationNode, path, topology);
+    console.log(`\n\nDetalles de envío:\n\n Start:${startNode}, Destination: ${destinationNode}, Path: ${path}, \n\n`, topology);
 
 	// Enviar el mensaje a siguiente nodo
-	if ((path.length > 0 && path[0] != startNode) || path.length > 1) {
-		const nextNode = path[0] !== startNode ? path[0]  : path[1];
+	if (path.length > 1) {
+		const nextNode = path[1];
 
 		const messageToSend = {
 			type: "send_routing",
 			to: message.to,
 			from: message.from,
 			data: message.data,
+            hops: path.length - 1,
 		};
 
-        console.log("PRUEEEBA: ", nextNode, destinationNode,startNode, path);
 		if (nextNode === destinationNode) {
 			messageToSend.type = "message";
 			delete messageToSend.to;
 		}
 
         const nextUser = await getName(nextNode);
-        console.log("Enviando mensaje a: ", nextNode, nextUser);
 		sendMessage(startUser, nextUser, JSON.stringify(messageToSend));
-	}
+	}else{
+        console.log("No se encontró una conexión para enviar el mensaje.");
+    }
 };
 
 const sendPresence = () => {
